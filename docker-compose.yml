@@ -1,0 +1,64 @@
+name: projecthub
+
+# Інфраструктура для локальної розробки.
+# Запуск: docker compose up -d
+# Сервіси додаються в Спринті 5 (задача SH-06) з профілем "apps".
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-projecthub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-projecthub}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-projecthub}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-projecthub}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-projecthub}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # Шаблон для SH-06. Розкоментуйте, коли буде Dockerfile.
+  #
+  # identity-service:
+  #   profiles: ["apps"]
+  #   build: ./services/identity-service
+  #   env_file: .env
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: docker
+  #     IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/identity_db
+  #     RABBITMQ_HOST: rabbitmq
+  #   depends_on:
+  #     postgres: { condition: service_healthy }
+  #     rabbitmq: { condition: service_healthy }
+  #   ports:
+  #     - "8081:8081"
+
+volumes:
+  pgdata:
+  rabbitmqdata:
